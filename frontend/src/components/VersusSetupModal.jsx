@@ -1,16 +1,29 @@
+/**
+ * VersusSetupModal.jsx
+ * Lets the user pick mode + specific checkpoint (by full name, not just episode)
+ * so the backend can load the exact .pt file without ambiguity between algorithms.
+ */
 import { useState } from 'react';
 
 export default function VersusSetupModal({ checkpoints, onStart, onClose }) {
   const [mode, setMode] = useState('human_vs_agent');
-  const [ep1, setEp1] = useState('');
-  const [ep2, setEp2] = useState('');
+  const [cp1, setCp1] = useState('');  // full checkpoint name e.g. "checkpoint_ep3000_dqn.pt"
+  const [cp2, setCp2] = useState('');
 
   const handleStart = () => {
     onStart({
       mode,
-      agent1Episode: ep1 ? parseInt(ep1) : null,
-      agent2Episode: ep2 ? parseInt(ep2) : null,
+      agent1Checkpoint: cp1 || null,
+      agent2Checkpoint: cp2 || null,
     });
+  };
+
+  // Build a friendly label: "ep3000 — DQN" from "checkpoint_ep3000_dqn.pt"
+  const cpLabel = (cp) => {
+    const name = cp.name;
+    const ep   = cp.episode;
+    const algo = (cp.algorithm || 'unknown').replace(/_/g, ' ').toUpperCase();
+    return `ep${ep} — ${algo}`;
   };
 
   return (
@@ -44,68 +57,64 @@ export default function VersusSetupModal({ checkpoints, onStart, onClose }) {
           </div>
         </div>
 
-        {/* Checkpoint pickers */}
+        {/* Checkpoint selectors */}
         <div style={styles.fields}>
           <div>
-            <label htmlFor="ep1-input">
-              {mode === 'human_vs_agent' ? 'Agent Checkpoint (episode)' : 'Agent 1 Checkpoint (episode)'}
+            <label htmlFor="cp1-select">
+              {mode === 'human_vs_agent' ? 'Agent Checkpoint' : 'Agent 1 Checkpoint'}
             </label>
-            <input
-              id="ep1-input"
-              className="input"
-              placeholder="e.g. 500  (leave blank for random)"
-              value={ep1}
-              onChange={e => setEp1(e.target.value)}
-            />
+            {checkpoints.length > 0 ? (
+              <select
+                id="cp1-select"
+                className="input"
+                value={cp1}
+                onChange={e => setCp1(e.target.value)}
+                style={{ marginTop: 4 }}
+              >
+                <option value="">— Random Agent (no checkpoint) —</option>
+                {checkpoints.map(cp => (
+                  <option key={cp.name} value={cp.name}>{cpLabel(cp)}</option>
+                ))}
+              </select>
+            ) : (
+              <p style={styles.noCheckpoints}>No checkpoints saved yet. Train first!</p>
+            )}
           </div>
+
           {mode === 'agent_vs_agent' && (
             <div>
-              <label htmlFor="ep2-input">Agent 2 Checkpoint (episode)</label>
-              <input
-                id="ep2-input"
-                className="input"
-                placeholder="e.g. 1000  (leave blank for random)"
-                value={ep2}
-                onChange={e => setEp2(e.target.value)}
-              />
+              <label htmlFor="cp2-select">Agent 2 Checkpoint</label>
+              {checkpoints.length > 0 ? (
+                <select
+                  id="cp2-select"
+                  className="input"
+                  value={cp2}
+                  onChange={e => setCp2(e.target.value)}
+                  style={{ marginTop: 4 }}
+                >
+                  <option value="">— Random Agent (no checkpoint) —</option>
+                  {checkpoints.map(cp => (
+                    <option key={cp.name} value={cp.name}>{cpLabel(cp)}</option>
+                  ))}
+                </select>
+              ) : (
+                <p style={styles.noCheckpoints}>No checkpoints saved yet.</p>
+              )}
             </div>
           )}
         </div>
 
-        {/* Available checkpoints list */}
-        {checkpoints.length > 0 ? (
-          <div style={styles.cpList}>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-              Saved Checkpoints
-            </p>
-            {checkpoints.map(cp => (
-              <div key={cp.name} style={styles.cpItem}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>
-                  ep{cp.episode} — {cp.algorithm}
-                </span>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-sm" style={{ padding: '2px 8px', fontSize: 11 }}
-                    onClick={() => setEp1(String(cp.episode))} id={`use-ep1-${cp.episode}`}>
-                    Use as {mode === 'human_vs_agent' ? 'Agent' : 'Agent 1'}
-                  </button>
-                  {mode === 'agent_vs_agent' && (
-                    <button className="btn btn-sm" style={{ padding: '2px 8px', fontSize: 11 }}
-                      onClick={() => setEp2(String(cp.episode))} id={`use-ep2-${cp.episode}`}>
-                      Agent 2
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={styles.emptyState}>
-            <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0 }}>
-              No saved checkpoints yet. Leave the episode field blank to use a <strong>Random Agent</strong> as the opponent.
-            </p>
-            <p style={{ color: 'var(--text-muted)', fontSize: 11, margin: '6px 0 0' }}>
-              Train an agent in the Training Studio first to save checkpoints, then load them here.
-            </p>
+        {/* Summary of what will load */}
+        {cp1 && (
+          <div style={styles.summary}>
+            <span style={{ color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+              {mode === 'human_vs_agent' ? 'Agent' : 'Agent 1'}: {cp1}
+            </span>
+            {mode === 'agent_vs_agent' && cp2 && (
+              <span style={{ color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                Agent 2: {cp2}
+              </span>
+            )}
           </div>
         )}
 
@@ -128,23 +137,20 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 100,
   },
-  modal: { width: 420, maxHeight: '90vh', overflowY: 'auto' },
+  modal: { width: 440, maxHeight: '90vh', overflowY: 'auto' },
   title: {
     fontSize: 15, fontWeight: 700, letterSpacing: '0.06em',
     textTransform: 'uppercase', color: 'var(--text-secondary)',
   },
   modeRow: { display: 'flex', gap: 8, marginTop: 6 },
-  fields: { display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 },
-  cpList: {
-    background: 'var(--bg-900)', borderRadius: 6, padding: 10,
-    marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 6,
+  fields: { display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 },
+  noCheckpoints: {
+    color: 'var(--text-muted)', fontSize: 12, margin: '6px 0 0',
+    fontStyle: 'italic',
   },
-  cpItem: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '4px 0', borderBottom: '1px solid var(--border)',
-  },
-  emptyState: {
-    background: 'var(--bg-900)', borderRadius: 6, padding: '12px 14px',
-    marginBottom: 12, borderLeft: '3px solid var(--accent-blue)',
+  summary: {
+    background: 'var(--bg-900)', borderRadius: 6, padding: '8px 12px',
+    marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4,
+    borderLeft: '3px solid var(--accent-blue)',
   },
 };

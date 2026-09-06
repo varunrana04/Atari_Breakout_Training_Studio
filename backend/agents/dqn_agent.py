@@ -37,7 +37,7 @@ class DQNAgent(BaseAgent):
 
     @classmethod
     def from_episode(cls, episode: int, obs_size: int, n_actions: int):
-        """Load agent from a checkpoint by episode number."""
+        """Load agent from a checkpoint by episode number (picks last alphabetically if multiple match)."""
         mgr = CheckpointManager()
         import glob, os
         pattern = os.path.join(mgr.dir, f'checkpoint_ep{episode}_*.pt')
@@ -49,6 +49,33 @@ class DQNAgent(BaseAgent):
         algo = 'dueling_double_dqn'
         if 'double_dqn' in path and 'dueling' not in path:
             algo = 'double_dqn'
-        elif 'dqn' in path and 'double' not in path:
+        elif 'dqn' in path and 'double' not in path and 'dueling' not in path:
             algo = 'dqn'
         return cls(path, obs_size, n_actions, algorithm=algo)
+
+    @classmethod
+    def from_name(cls, checkpoint_name: str, obs_size: int, n_actions: int):
+        """Load agent from an exact checkpoint filename (e.g. 'checkpoint_ep3000_dqn.pt').
+        Resolves to the checkpoints/ directory. Raises FileNotFoundError if not found."""
+        import os
+        mgr = CheckpointManager()
+        # Accept both bare filename and full path
+        if os.path.isabs(checkpoint_name) or os.sep in checkpoint_name or '/' in checkpoint_name:
+            path = checkpoint_name
+        else:
+            path = os.path.join(mgr.dir, checkpoint_name)
+
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Checkpoint not found: {path}")
+
+        # Detect algorithm from filename
+        name_lower = os.path.basename(path).lower()
+        if 'dueling' in name_lower:
+            algo = 'dueling_double_dqn'
+        elif 'double' in name_lower:
+            algo = 'double_dqn'
+        else:
+            algo = 'dqn'
+
+        return cls(path, obs_size, n_actions, algorithm=algo)
+

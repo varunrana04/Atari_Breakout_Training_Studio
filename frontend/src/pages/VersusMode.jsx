@@ -65,7 +65,7 @@ function renderState(canvas, state) {
 }
 
 // ── Versus Mode Component ──────────────────────────────────────────────────
-export default function VersusMode({ mode, agent1Episode, agent2Episode, onExit }) {
+export default function VersusMode({ mode, agent1Checkpoint, agent2Checkpoint, onExit }) {
   const leftCanvasRef  = useRef(null);
   const rightCanvasRef = useRef(null);
   const wsRef          = useRef(null);
@@ -98,8 +98,8 @@ export default function VersusMode({ mode, agent1Episode, agent2Episode, onExit 
         ws.send(JSON.stringify({
           cmd: 'start',
           mode,
-          agent1_episode: agent1Episode ?? null,
-          agent2_episode: agent2Episode ?? null,
+          agent1_checkpoint: agent1Checkpoint ?? null,
+          agent2_checkpoint: agent2Checkpoint ?? null,
         }));
         started = true;
       };
@@ -183,18 +183,18 @@ export default function VersusMode({ mode, agent1Episode, agent2Episode, onExit 
       wsRef.current.send(JSON.stringify({
         cmd: 'start',
         mode,
-        agent1_episode: agent1Episode ?? null,
-        agent2_episode: agent2Episode ?? null,
+        agent1_checkpoint: agent1Checkpoint ?? null,
+        agent2_checkpoint: agent2Checkpoint ?? null,
       }));
     }
     setLeftScore(0); setRightScore(0);
     setLeftLives(3); setRightLives(3);
   };
 
-  const leftLabel  = isHumanVsAgent ? 'YOU' : `Agent 1 — ep${agent1Episode ?? 'random'}`;
+  const leftLabel  = isHumanVsAgent ? 'YOU' : `Agent 1 — ${agent1Checkpoint ?? 'random'}`;
   const rightLabel = isHumanVsAgent
-    ? `${agentLabel} — ep${agent1Episode ?? 'random'}`
-    : `Agent 2 — ep${agent2Episode ?? 'random'}`;
+    ? `${agentLabel} — ${agent1Checkpoint ?? 'random'}`
+    : `Agent 2 — ${agent2Checkpoint ?? 'random'}`;
 
   return (
     <div style={styles.root}>

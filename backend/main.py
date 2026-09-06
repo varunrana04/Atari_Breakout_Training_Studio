@@ -186,28 +186,29 @@ async def ws_versus(ws: WebSocket):
 
             if cmd == 'start':
                 mode = msg.get('mode', 'human_vs_agent')
-                ep1 = msg.get('agent1_episode')
-                ep2 = msg.get('agent2_episode')
-
+                
                 # Build agents
+                cp1 = msg.get('agent1_checkpoint')   # full filename e.g. "checkpoint_ep3000_dqn.pt"
+                cp2 = msg.get('agent2_checkpoint')
                 obs_size = env_left.obs_size
                 n_actions = env_left.N_ACTIONS
 
-                def _make_agent(ep_or_name):
-                    """Load DQN from episode number or checkpoint name, or fall back to Random."""
-                    if ep_or_name is None:
+                def _make_agent(checkpoint_name):
+                    """Load DQN from exact checkpoint filename, or fall back to Random."""
+                    if not checkpoint_name:
                         return RandomAgent(), 'Random agent'
                     try:
                         from agents.dqn_agent import DQNAgent
-                        agent = DQNAgent.from_episode(int(ep_or_name), obs_size, n_actions)
-                        label = f'DQN ep{ep_or_name}'
+                        agent = DQNAgent.from_name(checkpoint_name, obs_size, n_actions)
+                        label = checkpoint_name.replace('checkpoint_', '').replace('.pt', '')
                         return agent, label
-                    except (FileNotFoundError, ValueError):
+                    except (FileNotFoundError, Exception) as e:
+                        print(f"[WS/versus] Could not load checkpoint {checkpoint_name}: {e}")
                         return RandomAgent(), 'Random agent'
 
                 if mode == 'agent_vs_agent':
-                    agent_left,  label1 = _make_agent(ep1)
-                    agent_right, label2 = _make_agent(ep2)
+                    agent_left,  label1 = _make_agent(cp1)
+                    agent_right, label2 = _make_agent(cp2)
                 else:  # human_vs_agent
                     agent_left  = None
                     label1      = 'Human'

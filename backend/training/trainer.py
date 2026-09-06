@@ -5,6 +5,7 @@ Supports: DQN, Double DQN, Dueling Double DQN.
 Streams training stats and game frames via an async callback.
 """
 import asyncio
+import csv
 import time
 import os
 import numpy as np
@@ -65,6 +66,13 @@ class Trainer:
         self.recent_q_values = []
         self._start_time = time.time()
 
+        # CSV history log
+        log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'checkpoints')
+        os.makedirs(log_dir, exist_ok=True)
+        self._history_path = os.path.join(log_dir, f'training_history_{algo}.csv')
+        self._csv_file = None
+        self._csv_writer = None
+
     @property
     def epsilon(self) -> float:
         return max(
@@ -121,6 +129,11 @@ class Trainer:
         """Main async training loop."""
         self.stop_requested = False
         self._start_time = time.time()
+
+        # Open CSV history file
+        self._csv_file = open(self._history_path, 'w', newline='', encoding='utf-8')
+        self._csv_writer = csv.writer(self._csv_file)
+        self._csv_writer.writerow(['episode', 'reward', 'avg_reward_100', 'avg_loss_100', 'avg_q_100', 'epsilon'])
 
         state = self.env.reset(seed=42)
 
@@ -183,6 +196,15 @@ class Trainer:
                     print(f"[Ep {self.episode:5d}] reward={episode_reward:6.1f} "
                           f"avg={avg_reward:6.2f} eps={self.epsilon:.4f} loss={avg_loss:.4f}")
 
+                # Write to CSV
+                if self._csv_writer:
+                    self._csv_writer.writerow([
+                        self.episode, round(episode_reward, 2),
+                        round(avg_reward, 2), round(avg_loss, 4),
+                        round(avg_q, 4), round(self.epsilon, 4),
+                    ])
+                    self._csv_file.flush()
+
                 # Auto-save every 500 episodes
                 if self.episode % 500 == 0:
                     self.checkpoint_mgr.save(self.q_net, self.optimizer, self.episode, {
@@ -196,6 +218,11 @@ class Trainer:
                 await asyncio.sleep(0)
 
         print(f"[Trainer] Training complete after {self.episode} episodes.")
+
+        # Close CSV
+        if self._csv_file:
+            self._csv_file.close()
+            self._csv_file = None
 
         # Final checkpoint
         self.checkpoint_mgr.save(self.q_net, self.optimizer, self.episode, {

@@ -58,8 +58,8 @@ export default function App() {
       {screen === 'versus' && versusConfig && (
         <VersusMode
           mode={versusConfig.mode}
-          agent1Episode={versusConfig.agent1Episode}
-          agent2Episode={versusConfig.agent2Episode}
+          agent1Checkpoint={versusConfig.agent1Checkpoint}
+          agent2Checkpoint={versusConfig.agent2Checkpoint}
           onExit={() => setScreen('landing')}
         />
       )}

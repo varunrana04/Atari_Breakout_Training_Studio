@@ -11,6 +11,7 @@ import os
 import numpy as np
 import torch
 import torch.nn.functional as F
+from concurrent.futures import ThreadPoolExecutor
 
 from env.breakout_env import BreakoutEnv
 from networks.cnn import build_network
@@ -26,7 +27,7 @@ class Trainer:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f"[Trainer] Using device: {self.device}")
 
-        algo = hyperparams.get('algorithm', 'dueling_double_dqn')
+        algo = hyperparams.get('algorithm', 'dqn') # Default to dqn
         self.algo = algo
         self.env = BreakoutEnv()
 
@@ -62,9 +63,13 @@ class Trainer:
 
         # Stats tracking
         self.recent_rewards = []
+        self.recent_lengths = []
         self.recent_losses  = []
         self.recent_q_values = []
         self._start_time = time.time()
+
+        # Thread pool for PyTorch training steps
+        self.executor = ThreadPoolExecutor(max_workers=1)
 
         # CSV history log
         log_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'checkpoints')
@@ -105,30 +110,41 @@ class Trainer:
         # Target Q values
         with torch.no_grad():
             if self.algo in ('double_dqn', 'dueling_double_dqn'):
-                # Double DQN: use online net to select action, target net to evaluate
                 best_actions = self.q_net(s_).argmax(dim=1)
                 target_q_vals = self.target_net(s_).gather(1, best_actions.unsqueeze(1)).squeeze(1)
             else:
-                # Vanilla DQN: use target net for both select and evaluate
                 target_q_vals = self.target_net(s_).max(dim=1).values
 
             target_q = r + self.gamma * target_q_vals * (1 - d)
 
-        loss = F.mse_loss(current_q, target_q)
+        loss = F.smooth_l1_loss(current_q, target_q)
 
         self.optimizer.zero_grad()
         loss.backward()
-        # Gradient clipping for stability
         torch.nn.utils.clip_grad_norm_(self.q_net.parameters(), max_norm=10.0)
         self.optimizer.step()
 
         mean_q = current_q.mean().item()
         return loss.item(), mean_q
 
+    async def _broadcast_loop(self):
+        """Runs in background at 30 FPS, emitting the latest available state."""
+        while not self.stop_requested:
+            if self.on_step and getattr(self, '_latest_broadcast_data', None) is not None:
+                try:
+                    await self.on_step(*self._latest_broadcast_data)
+                except Exception as e:
+                    print(f"Broadcast error: {e}")
+            await asyncio.sleep(1.0 / 30.0)
+
     async def run(self):
         """Main async training loop."""
         self.stop_requested = False
         self._start_time = time.time()
+        
+        # Start broadcaster
+        self._latest_broadcast_data = None
+        self._broadcast_task = asyncio.create_task(self._broadcast_loop())
 
         # Open CSV history file
         self._csv_file = open(self._history_path, 'w', newline='', encoding='utf-8')
@@ -138,9 +154,11 @@ class Trainer:
         state = self.env.reset(seed=42)
 
         episode_reward = 0
-        episode_start_step = 0
+        episode_start_step = self.total_steps
 
         print(f"[Trainer] Starting {self.algo.upper()} training for {self.total_episodes} episodes")
+
+        loop = asyncio.get_event_loop()
 
         while self.episode < self.total_episodes and not self.stop_requested:
             # Pause support
@@ -149,15 +167,16 @@ class Trainer:
 
             action = self._select_action(state)
             next_state, reward, done, info = self.env.step(action)
-            self.replay_buffer.push(state, action, reward, next_state, done)
+            buffer_done = done or info.get('life_lost', False)
+            self.replay_buffer.push(state, action, reward, next_state, buffer_done)
             state = next_state
             episode_reward += reward
             self.total_steps += 1
 
-            # Train
+            # Train (offloaded to threadpool)
             loss, mean_q = 0.0, 0.0
             if self.replay_buffer.is_ready:
-                loss, mean_q = self._train_step()
+                loss, mean_q = await loop.run_in_executor(self.executor, self._train_step)
                 self.recent_losses.append(loss)
                 self.recent_q_values.append(mean_q)
 
@@ -165,33 +184,44 @@ class Trainer:
             if self.total_steps % self.target_update_steps == 0:
                 self.target_net.load_state_dict(self.q_net.state_dict())
 
+            # Update latest broadcast state
+            current_time = time.time()
+            avg_reward = np.mean(self.recent_rewards[-100:]) if self.recent_rewards else 0.0
+            avg_length = np.mean(self.recent_lengths[-100:]) if self.recent_lengths else 0.0
+            avg_loss   = np.mean(self.recent_losses[-100:]) if self.recent_losses else 0.0
+            avg_q      = np.mean(self.recent_q_values[-100:]) if self.recent_q_values else 0.0
+            elapsed    = current_time - self._start_time
+            eps_per_hr = self.episode / (elapsed / 3600) if elapsed > 0 else 0
+            
+            render = self.env.get_render_state()
+            self._latest_broadcast_data = (
+                {
+                    'type': 'stats',
+                    'episode': self.episode,
+                    'reward': episode_reward,
+                    'avg_reward': avg_reward,
+                    'avg_length': avg_length,
+                    'epsilon': self.epsilon,
+                    'loss': avg_loss,
+                    'q_value': avg_q,
+                    'eps_per_hour': eps_per_hr,
+                }, 
+                {
+                    'type': 'frame',
+                    'frame': render,
+                }
+            )
+
             # Episode end
             if done:
+                episode_len = self.total_steps - episode_start_step
                 self.episode += 1
                 self.recent_rewards.append(episode_reward)
+                self.recent_lengths.append(episode_len)
                 avg_reward = np.mean(self.recent_rewards[-100:])
                 avg_loss   = np.mean(self.recent_losses[-100:]) if self.recent_losses else 0.0
                 avg_q      = np.mean(self.recent_q_values[-100:]) if self.recent_q_values else 0.0
-                elapsed    = time.time() - self._start_time
-                eps_per_hr = self.episode / (elapsed / 3600) if elapsed > 0 else 0
-
-                # Send stats + frame to frontend
-                if self.on_step:
-                    render = self.env.get_render_state()
-                    await self.on_step({
-                        'type': 'stats',
-                        'episode': self.episode,
-                        'reward': episode_reward,
-                        'avg_reward': avg_reward,
-                        'epsilon': self.epsilon,
-                        'loss': avg_loss,
-                        'q_value': avg_q,
-                        'eps_per_hour': eps_per_hr,
-                    }, {
-                        'type': 'frame',
-                        'frame': render,
-                    })
-
+                
                 if self.episode % 100 == 0:
                     print(f"[Ep {self.episode:5d}] reward={episode_reward:6.1f} "
                           f"avg={avg_reward:6.2f} eps={self.epsilon:.4f} loss={avg_loss:.4f}")
@@ -207,12 +237,13 @@ class Trainer:
 
                 # Auto-save every 500 episodes
                 if self.episode % 500 == 0:
-                    self.checkpoint_mgr.save(self.q_net, self.optimizer, self.episode, {
+                    self.checkpoint_mgr.save(self.q_net, self.optimizer, self.epsilon, self.episode, {
                         'avg_reward': avg_reward, 'algorithm': self.algo,
                     })
 
                 state = self.env.reset()
                 episode_reward = 0
+                episode_start_step = self.total_steps
 
                 # Yield control to event loop every episode
                 await asyncio.sleep(0)
@@ -223,19 +254,23 @@ class Trainer:
         if self._csv_file:
             self._csv_file.close()
             self._csv_file = None
+            
+        if hasattr(self, '_broadcast_task'):
+            self._broadcast_task.cancel()
 
         # Final checkpoint
-        self.checkpoint_mgr.save(self.q_net, self.optimizer, self.episode, {
+        self.checkpoint_mgr.save(self.q_net, self.optimizer, self.epsilon, self.episode, {
             'avg_reward': float(np.mean(self.recent_rewards[-100:])) if self.recent_rewards else 0,
             'algorithm': self.algo, 'final': True,
         })
+        self.executor.shutdown(wait=False)
 
     def pause(self): self.paused = True
     def resume(self): self.paused = False
     def stop(self): self.stop_requested = True
 
     def save_checkpoint(self):
-        self.checkpoint_mgr.save(self.q_net, self.optimizer, self.episode, {
+        self.checkpoint_mgr.save(self.q_net, self.optimizer, self.epsilon, self.episode, {
             'algorithm': self.algo,
         })
 

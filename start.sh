@@ -1,33 +1,60 @@
 #!/bin/bash
-# Breakout Training Studio — Single Command Startup (Linux / macOS)
-# Run from the project2-breakout-studio/ directory: bash start.sh
-
 set -e
 
-echo ""
-echo "[Breakout Studio] Installing backend dependencies..."
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$DIR"
+
+echo -e "\033[0;36mStarting Breakout Studio...\033[0m"
+
+# Kill stale processes
+function kill_port {
+    local PORT=$1
+    if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
+        echo -e "\033[0;33mPort $PORT is in use. Killing stale processes...\033[0m"
+        lsof -ti:$PORT | xargs kill -9
+        sleep 2
+    fi
+}
+
+kill_port 8000
+kill_port 5173
+
+if [ "$1" == "--install" ] || [ "$1" == "-i" ]; then
+    echo -e "\033[0;36mInstalling Backend Dependencies...\033[0m"
+    cd backend
+    pip install -r requirements.txt
+    cd ..
+
+    echo -e "\033[0;36mInstalling Frontend Dependencies...\033[0m"
+    cd frontend
+    npm install
+    cd ..
+fi
+
+# Start Backend
+echo -e "\033[0;36mStarting Backend...\033[0m"
 cd backend
-pip install -r requirements.txt --quiet
-echo "[Breakout Studio] Starting backend on http://localhost:8000..."
 python main.py &
 BACKEND_PID=$!
 cd ..
 
 sleep 2
 
-echo "[Breakout Studio] Installing frontend dependencies..."
+# Start Frontend
+echo -e "\033[0;36mStarting Frontend...\033[0m"
 cd frontend
-npm install --silent
-echo "[Breakout Studio] Starting frontend on http://localhost:5173..."
-npm run dev &
+npm run dev -- --port 5173 &
 FRONTEND_PID=$!
 cd ..
 
-echo ""
-echo "[Breakout Studio] Ready!"
-echo "  Open: http://localhost:5173"
-echo "  Press Ctrl+C to stop."
-echo ""
+# Handle shutdown
+function cleanup {
+    echo -e "\033[0;33mShutting down...\033[0m"
+    kill $BACKEND_PID
+    kill $FRONTEND_PID
+    exit 0
+}
+trap cleanup SIGINT SIGTERM
 
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null" EXIT
+echo -e "\033[0;32mServices started! Press Ctrl+C to stop.\033[0m"
 wait

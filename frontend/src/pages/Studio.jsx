@@ -36,6 +36,7 @@ export default function Studio({ settings, onExit, onVersus }) {
 
   // Chart data
   const [rewardHistory, setRewardHistory] = useState([]);
+  const [lengthHistory, setLengthHistory] = useState([]);
   const [lossHistory, setLossHistory] = useState([]);
   const [epsilonHistory, setEpsilonHistory] = useState([]);
   const [qHistory, setQHistory] = useState([]);
@@ -68,6 +69,7 @@ export default function Studio({ settings, onExit, onVersus }) {
             speed: data.eps_per_hour,
           });
           setRewardHistory(h => [...h.slice(-500), { x: data.episode, y: data.avg_reward }]);
+          setLengthHistory(h => [...h.slice(-500), { x: data.episode, y: data.avg_length }]);
           setLossHistory(h => [...h.slice(-500), { x: data.episode, y: data.loss }]);
           setEpsilonHistory(h => [...h.slice(-500), { x: data.episode, y: data.epsilon }]);
           setQHistory(h => [...h.slice(-500), { x: data.episode, y: data.q_value }]);
@@ -98,7 +100,7 @@ export default function Studio({ settings, onExit, onVersus }) {
     setTimeout(() => {
       sendCommand('start', { hyperparams, powerUpsEnabled: settings.powerUpsEnabled });
       setTraining(true);
-      setRewardHistory([]); setLossHistory([]); setEpsilonHistory([]); setQHistory([]);
+      setRewardHistory([]); setLengthHistory([]); setLossHistory([]); setEpsilonHistory([]); setQHistory([]);
     }, 300);
   };
 
@@ -115,6 +117,11 @@ export default function Studio({ settings, onExit, onVersus }) {
 
   // Cleanup on unmount
   useEffect(() => () => { wsRef.current?.close(); }, []);
+
+  // Auto-connect on mount
+  useEffect(() => {
+    connect();
+  }, [connect]);
 
   return (
     <div style={styles.root}>
@@ -162,6 +169,7 @@ export default function Studio({ settings, onExit, onVersus }) {
           <div className="panel">
             <RewardChart
               rewardData={rewardHistory}
+              lengthData={lengthHistory}
               lossData={lossHistory}
               epsilonData={epsilonHistory}
               qData={qHistory}
@@ -190,27 +198,33 @@ function drawFrame(ctx, frame, W, H) {
   ctx.fillRect(0, 0, W, H);
 
   // Bricks
-  if (frame.bricks) {
-    for (const b of frame.bricks) {
-      if (!b.alive) continue;
+  const brickData = frame.bricks || [];
+  const COLS = 12, ROWS = 8;
+  const bW = 34, bH = 18;
+  const PADDING = 4, OFFSET_X = 10, OFFSET_Y = 60;
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const hp = brickData[r * COLS + c] ?? 0;
+      if (hp <= 0) continue;
       const colors = { 1: '#e2e8f0', 2: '#60a5fa', 3: '#f97316', 9: '#6b7280' };
-      ctx.fillStyle = colors[b.hp] ?? '#94a3b8';
-      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = colors[hp] ?? '#94a3b8';
+      ctx.fillRect(OFFSET_X + c * (bW + PADDING), OFFSET_Y + r * (bH + PADDING), bW, bH);
     }
   }
 
   // Ball
-  if (frame.ballX != null) {
+  if (frame.ball_x != null) {
     ctx.beginPath();
-    ctx.arc(frame.ballX * W, frame.ballY * H, 7, 0, Math.PI * 2);
+    ctx.arc(frame.ball_x * W, frame.ball_y * H, 7, 0, Math.PI * 2);
     ctx.fillStyle = '#f8fafc';
     ctx.fill();
   }
 
   // Paddle
-  if (frame.paddleX != null) {
-    const pw = (frame.paddleW ?? 80);
-    const px = frame.paddleX * W - pw / 2;
+  if (frame.paddle_x != null) {
+    const pw = (frame.paddle_w * W || 80);
+    const px = frame.paddle_x * W - pw / 2;
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(px, H - 40, pw, 12);
   }

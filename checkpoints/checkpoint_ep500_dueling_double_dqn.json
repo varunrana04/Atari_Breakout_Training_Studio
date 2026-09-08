@@ -1,0 +1,29 @@
+{
+  "episode": 500,
+  "epsilon": 0.63770158,
+  "algorithm": "dueling_double_dqn",
+  "meta": {
+    "environment_version": "1.0",
+    "state_dimension": 102,
+    "action_dimension": 3,
+    "algorithm": "dueling_double_dqn",
+    "seed": 42,
+    "hyperparameters": {
+      "learning_rate": 0.00025,
+      "gamma": 0.99,
+      "batch_size": 32,
+      "replay_buffer_size": 100000,
+      "epsilon_start": 1.0,
+      "epsilon_final": 0.01,
+      "epsilon_decay_steps": 1000000,
+      "target_update_steps": 10000
+    },
+    "episode": 500,
+    "avg_reward": 18.1,
+    "env_version": "1.0.0",
+    "model_architecture": {
+      "class": "DuelingQNetwork",
+      "total_params": 158468
+    }
+  }
+}

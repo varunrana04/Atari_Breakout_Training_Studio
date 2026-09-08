@@ -1,0 +1,29 @@
+{
+  "episode": 2000,
+  "epsilon": 0.01,
+  "algorithm": "dqn",
+  "meta": {
+    "environment_version": "1.0",
+    "state_dimension": 102,
+    "action_dimension": 3,
+    "algorithm": "dqn",
+    "seed": 42,
+    "hyperparameters": {
+      "learning_rate": 0.00025,
+      "gamma": 0.99,
+      "batch_size": 32,
+      "replay_buffer_size": 100000,
+      "epsilon_start": 1.0,
+      "epsilon_final": 0.01,
+      "epsilon_decay_steps": 1000000,
+      "target_update_steps": 10000
+    },
+    "episode": 2000,
+    "avg_reward": 32.85,
+    "env_version": "1.0.0",
+    "model_architecture": {
+      "class": "QNetwork",
+      "total_params": 92931
+    }
+  }
+}

@@ -115,7 +115,8 @@ async def ws_versus(ws: WebSocket):
 
     Client sends:
       { cmd: 'start', mode: 'human_vs_agent'|'agent_vs_agent',
-        agent1_episode: int, agent2_episode: int }
+        agent1_checkpoint: str|null,   # full filename e.g. "checkpoint_ep3000_dqn.pt"
+        agent2_checkpoint: str|null }
       { cmd: 'action', action: 0|1|2 }  (for human left side)
       { cmd: 'stop' }
 
@@ -209,10 +210,15 @@ async def ws_versus(ws: WebSocket):
                 if mode == 'agent_vs_agent':
                     agent_left,  label1 = _make_agent(cp1)
                     agent_right, label2 = _make_agent(cp2)
+                elif mode == 'watch_agent':
+                    agent_left  = None
+                    label1      = 'None'
+                    agent_right, label2 = _make_agent(cp1)
                 else:  # human_vs_agent
                     agent_left  = None
                     label1      = 'Human'
-                    agent_right, label2 = _make_agent(ep1)
+                    agent_right, label2 = _make_agent(cp1)
+
 
                 running = True
                 stop_flag = False

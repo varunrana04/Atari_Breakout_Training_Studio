@@ -1,37 +1,37 @@
 # Python
 __pycache__/
-**/__pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.pyc
-.venv/
-venv/
+*$py.class
+*.so
+.Python
 env/
-*.egg-info/
-dist/
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.env
+venv/
+
+# PyTorch
+*.pt
+*.pth
 
 # Node
 node_modules/
-.npm/
-*.log
 dist/
-.vite/
-
-# Environment
-.env
 .env.local
-*.env
-
-# OS
-.DS_Store
-Thumbs.db
 
 # IDE
 .vscode/
 .idea/
 *.swp
-
-# Training artifacts (keep checkpoints but not temp files)
-*.tmp

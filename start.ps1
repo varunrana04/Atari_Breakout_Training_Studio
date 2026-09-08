@@ -1,33 +1,70 @@
-# start.ps1 — Single command startup for Breakout Training Studio
-# Usage: .\start.ps1
+param(
+    [switch]$Install = $false
+)
 
-Write-Host "Breakout Training Studio" -ForegroundColor Cyan
-Write-Host "========================" -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+cd $ScriptDir
 
-# 1. Install backend deps if needed
-Write-Host "`n[1/3] Installing Python dependencies..." -ForegroundColor Yellow
-Set-Location "$PSScriptRoot\backend"
-pip install -r requirements.txt -q
+Write-Host "Starting Breakout Studio..." -ForegroundColor Cyan
 
-# 2. Start backend in background
-Write-Host "[2/3] Starting backend (http://localhost:8000)..." -ForegroundColor Yellow
-$backend = Start-Process -FilePath "python" -ArgumentList "main.py" `
-    -WorkingDirectory "$PSScriptRoot\backend" `
-    -PassThru -WindowStyle Minimized
+# Kill stale processes on ports 5173 (Frontend) and 8000 (Backend)
+function Kill-Port {
+    param([int]$Port)
+    $Connections = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    if ($Connections) {
+        Write-Host "Port $Port is in use. Killing stale processes..." -ForegroundColor Yellow
+        foreach ($Conn in $Connections) {
+            $Process = Get-Process -Id $Conn.OwningProcess -ErrorAction SilentlyContinue
+            if ($Process) {
+                Write-Host "Killing Process ID: $($Process.Id) ($($Process.ProcessName))" -ForegroundColor Yellow
+                Stop-Process -Id $Process.Id -Force
+            }
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+
+Kill-Port 8000
+Kill-Port 5173
+
+if ($Install) {
+    Write-Host "Installing Backend Dependencies..." -ForegroundColor Cyan
+    cd backend
+    pip install -r requirements.txt
+    cd ..
+
+    Write-Host "Installing Frontend Dependencies..." -ForegroundColor Cyan
+    cd frontend
+    npm install
+    cd ..
+}
+
+# Start Backend
+Write-Host "Starting Backend..." -ForegroundColor Cyan
+cd backend
+$BackendProc = Start-Process python -ArgumentList "main.py" -NoNewWindow -PassThru
+cd ..
 
 Start-Sleep -Seconds 2
 
-# 3. Install frontend deps if needed and start
-Write-Host "[3/3] Starting frontend (http://localhost:5173)..." -ForegroundColor Yellow
-Set-Location "$PSScriptRoot\frontend"
-if (-not (Test-Path "node_modules")) {
-    npm install -q
+# Start Frontend
+Write-Host "Starting Frontend..." -ForegroundColor Cyan
+cd frontend
+$FrontendProc = Start-Process npm.cmd -ArgumentList "run dev" -NoNewWindow -PassThru
+cd ..
+
+Write-Host "Breakout Studio is running!" -ForegroundColor Green
+Write-Host "Frontend: http://localhost:5173"
+Write-Host "Backend: http://localhost:8000"
+Write-Host "Press Ctrl+C to exit."
+
+try {
+    while ($true) {
+        Start-Sleep -Seconds 1
+    }
+} finally {
+    Write-Host "`nStopping processes..." -ForegroundColor Yellow
+    if ($BackendProc) { Stop-Process -Id $BackendProc.Id -Force -ErrorAction SilentlyContinue }
+    if ($FrontendProc) { Stop-Process -Id $FrontendProc.Id -Force -ErrorAction SilentlyContinue }
 }
-
-Write-Host "`nOpening http://localhost:5173 ..." -ForegroundColor Green
-Start-Process "http://localhost:5173"
-
-npm run dev
-
-# Cleanup on exit
-$backend | Stop-Process -ErrorAction SilentlyContinue

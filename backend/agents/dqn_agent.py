@@ -15,12 +15,12 @@ class DQNAgent(BaseAgent):
     """
     Loads a trained checkpoint and plays greedily (no exploration).
     """
-    def __init__(self, checkpoint_path: str, obs_size: int, n_actions: int, algorithm: str = 'dueling_double_dqn'):
+    def __init__(self, checkpoint_path: str, obs_size: int, n_actions: int, algorithm: str = 'dqn'):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.n_actions = n_actions
 
         self.net = build_network(algorithm, obs_size, n_actions).to(self.device)
-        data = torch.load(checkpoint_path, map_location=self.device)
+        data = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         self.net.load_state_dict(data['model_state_dict'])
         self.net.eval()
 

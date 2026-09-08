@@ -38,7 +38,8 @@ export default function VersusSetupModal({ checkpoints, onStart, onClose }) {
           <div style={styles.modeRow}>
             {[
               { id: 'human_vs_agent', label: 'Human vs Agent' },
-              { id: 'agent_vs_agent', label: 'Agent vs Agent' },
+              { id: 'watch_agent', label: 'Watch Checkpoint Play' },
+              { id: 'agent_vs_agent', label: 'Compare Checkpoints' },
             ].map(m => (
               <button
                 key={m.id}
@@ -61,7 +62,7 @@ export default function VersusSetupModal({ checkpoints, onStart, onClose }) {
         <div style={styles.fields}>
           <div>
             <label htmlFor="cp1-select">
-              {mode === 'human_vs_agent' ? 'Agent Checkpoint' : 'Agent 1 Checkpoint'}
+              {mode === 'human_vs_agent' ? 'Agent Checkpoint' : mode === 'watch_agent' ? 'Watch Agent Checkpoint' : 'Agent 1 Checkpoint'}
             </label>
             {checkpoints.length > 0 ? (
               <select
@@ -108,7 +109,7 @@ export default function VersusSetupModal({ checkpoints, onStart, onClose }) {
         {cp1 && (
           <div style={styles.summary}>
             <span style={{ color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-              {mode === 'human_vs_agent' ? 'Agent' : 'Agent 1'}: {cp1}
+              {mode === 'human_vs_agent' ? 'Agent' : mode === 'watch_agent' ? 'Watch Agent' : 'Agent 1'}: {cp1}
             </span>
             {mode === 'agent_vs_agent' && cp2 && (
               <span style={{ color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>

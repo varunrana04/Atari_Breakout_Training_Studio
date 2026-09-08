@@ -17,11 +17,11 @@ from env.breakout_env import BreakoutEnv, CANVAS_W, CANVAS_H
 
 
 def test_reset_returns_correct_obs_shape():
-    """State vector must be exactly obs_size = 101 features."""
+    """State vector must be exactly obs_size = 102 features."""
     env = BreakoutEnv()
     obs = env.reset(seed=1)
     assert obs.shape == (env.obs_size,), f"Expected {(env.obs_size,)}, got {obs.shape}"
-    assert env.obs_size == 101, f"Expected 101, got {env.obs_size}"
+    assert env.obs_size == 102, f"Expected 102, got {env.obs_size}"
     print("PASS test_reset_returns_correct_obs_shape")
 
 
@@ -100,8 +100,8 @@ def test_paddle_does_not_go_out_of_bounds():
     print("PASS test_paddle_does_not_go_out_of_bounds")
 
 
-def test_brick_destroyed_gives_positive_reward():
-    """Hitting a brick must yield reward > 0 (at least +10)."""
+def test_brick_reward():
+    """Hitting a brick must yield reward of exactly +10."""
     env = BreakoutEnv()
     env.reset(seed=1)
     # Place ball just above a brick to force a collision next step
@@ -118,11 +118,11 @@ def test_brick_destroyed_gives_positive_reward():
         if done:
             break
     assert total_reward >= 10, f"Expected at least +10 reward for brick hit, got {total_reward}"
-    print("PASS test_brick_destroyed_gives_positive_reward")
+    print("PASS test_brick_reward")
 
 
-def test_life_loss_gives_negative_reward():
-    """Losing a ball (ball falls below canvas) must yield reward <= -5."""
+def test_life_loss_reward():
+    """Losing a ball (ball falls below canvas) must yield reward of exactly -5."""
     env = BreakoutEnv()
     env.reset(seed=1)
     # Put the ball below the canvas so it's lost immediately
@@ -131,12 +131,40 @@ def test_life_loss_gives_negative_reward():
     env.ball_vy = 5.0  # moving downward (already past canvas)
     lives_before = env.lives
     _, reward, _, info = env.step(env.ACTION_NOOP)
-    assert info['lives'] < lives_before or reward <= -5 or env.lives < lives_before, \
-        f"Life loss did not yield negative reward or decrement lives. reward={reward}, lives={info['lives']}"
-    print("PASS test_life_loss_gives_negative_reward")
+    assert reward <= -5, f"Expected -5 reward for life loss, got {reward}"
+    print("PASS test_life_loss_reward")
 
 
-def test_done_when_all_lives_lost():
+def test_board_clear_reward():
+    """Clearing the final brick must yield +50 reward (plus +10 for the brick)."""
+    env = BreakoutEnv()
+    env.reset(seed=1)
+    
+    # Destroy all non-indestructible bricks manually except one
+    living_bricks = [b for b in env.bricks if not b['indestructible']]
+    for b in living_bricks[:-1]:
+        b['alive'] = False
+        b['hp'] = 0
+        
+    # Place ball exactly at the last brick
+    last_brick = living_bricks[-1]
+    env.ball_x = last_brick['x'] + last_brick['w'] / 2
+    env.ball_y = last_brick['y'] + last_brick['h'] + 2
+    env.ball_vx = 0.0
+    env.ball_vy = -6.0
+    
+    total_reward = 0.0
+    for _ in range(10):
+        _, r, done, _ = env.step(env.ACTION_NOOP)
+        total_reward += r
+        if done:
+            break
+            
+    assert total_reward >= 60, f"Expected +60 total (+10 brick, +50 clear), got {total_reward}"
+    print("PASS test_board_clear_reward")
+
+
+def test_terminal_state():
     """done must be True when lives reach 0."""
     env = BreakoutEnv()
     env.reset(seed=1)
@@ -147,7 +175,7 @@ def test_done_when_all_lives_lost():
     env.ball_vy = 5.0
     _, _, done, info = env.step(env.ACTION_NOOP)
     assert done, f"Expected done=True when last life lost, got done={done}, lives={info['lives']}"
-    print("PASS test_done_when_all_lives_lost")
+    print("PASS test_terminal_state")
 
 
 def test_step_after_done_raises():
@@ -229,9 +257,10 @@ if __name__ == '__main__':
         test_left_moves_paddle_left,
         test_right_moves_paddle_right,
         test_paddle_does_not_go_out_of_bounds,
-        test_brick_destroyed_gives_positive_reward,
-        test_life_loss_gives_negative_reward,
-        test_done_when_all_lives_lost,
+        test_brick_reward,
+        test_life_loss_reward,
+        test_board_clear_reward,
+        test_terminal_state,
         test_step_after_done_raises,
         test_obs_values_in_valid_range,
         test_render_state_returns_required_keys,

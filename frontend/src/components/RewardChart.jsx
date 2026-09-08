@@ -10,6 +10,7 @@ ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Filler, 
 
 const CHARTS = [
   { key: 'reward',  label: 'Avg Reward',   color: '#22c55e', dataKey: 'rewardData' },
+  { key: 'length',  label: 'Ep Length',    color: '#eab308', dataKey: 'lengthData' },
   { key: 'loss',    label: 'Loss',          color: '#f97316', dataKey: 'lossData' },
   { key: 'epsilon', label: 'Epsilon',       color: '#3b82f6', dataKey: 'epsilonData' },
   { key: 'qvalue',  label: 'Mean Q-Value',  color: '#a855f7', dataKey: 'qData' },
@@ -54,10 +55,10 @@ const CHART_OPTIONS = (title) => ({
   },
 });
 
-export default function RewardChart({ rewardData, lossData, epsilonData, qData }) {
+export default function RewardChart({ rewardData, lengthData, lossData, epsilonData, qData }) {
   const [activeChart, setActiveChart] = useState('reward');
 
-  const dataMap = { rewardData, lossData, epsilonData, qData };
+  const dataMap = { rewardData, lengthData, lossData, epsilonData, qData };
   const active = CHARTS.find(c => c.key === activeChart);
   const currentData = dataMap[active.dataKey] ?? [];
 

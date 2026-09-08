@@ -1,0 +1,15 @@
+{
+  "episode": 24,
+  "epsilon": 0.98978419,
+  "algorithm": "dqn",
+  "meta": {
+    "avg_reward": 9.166666666666666,
+    "algorithm": "dqn",
+    "final": true,
+    "env_version": "1.0.0",
+    "model_architecture": {
+      "class": "QNetwork",
+      "total_params": 92931
+    }
+  }
+}

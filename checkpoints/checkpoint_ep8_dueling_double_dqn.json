@@ -1,0 +1,15 @@
+{
+  "episode": 8,
+  "epsilon": 0.99649342,
+  "algorithm": "dueling_double_dqn",
+  "meta": {
+    "avg_reward": 8.75,
+    "algorithm": "dueling_double_dqn",
+    "final": true,
+    "env_version": "1.0.0",
+    "model_architecture": {
+      "class": "DuelingQNetwork",
+      "total_params": 158468
+    }
+  }
+}

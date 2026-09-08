@@ -47,7 +47,7 @@ def run_random_baseline(episodes: int = 200) -> dict:
     }
 
 
-def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict) -> dict:
+def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict, seed: int = 42) -> dict:
     """Run DQN training synchronously (no WebSocket). Returns stats dict."""
     import torch
     import torch.nn.functional as F
@@ -81,8 +81,15 @@ def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict) -> dict:
     all_losses  = []
     start_time  = time.time()
 
-    state = env.reset(seed=42)
+    state = env.reset(seed=seed)
     episode_reward = 0
+
+    import csv
+    history_path = f"checkpoints/history_{algorithm}.csv"
+    os.makedirs('checkpoints', exist_ok=True)
+    csv_file = open(history_path, 'w', newline='', encoding='utf-8')
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(['episode', 'reward', 'avg_reward_100', 'avg_loss_100', 'avg_q_100', 'epsilon'])
 
     ep = 0
     while ep < episodes:
@@ -98,8 +105,9 @@ def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict) -> dict:
                 s = torch.FloatTensor(state).unsqueeze(0).to(device)
                 action = q_net(s).argmax(dim=1).item()
 
-        next_state, reward, done, _ = env.step(action)
-        replay_buffer.push(state, action, reward, next_state, done)
+        next_state, reward, done, info = env.step(action)
+        buffer_done = done or info.get('life_lost', False)
+        replay_buffer.push(state, action, reward, next_state, buffer_done)
         state = next_state
         episode_reward += reward
         total_steps += 1
@@ -123,7 +131,7 @@ def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict) -> dict:
                     target_q_vals = target_net(s_).max(dim=1).values
                 target_q = r + gamma * target_q_vals * (1 - d)
 
-            loss = F.mse_loss(current_q, target_q)
+            loss = F.smooth_l1_loss(current_q, target_q)
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(q_net.parameters(), 10.0)
@@ -137,26 +145,49 @@ def run_dqn_training(algorithm: str, episodes: int, hyperparams: dict) -> dict:
             ep += 1
             all_rewards.append(episode_reward)
             avg_r = np.mean(all_rewards[-100:])
+            avg_l = np.mean(all_losses[-100:]) if all_losses else 0
+            
+            # Log to CSV
+            csv_writer.writerow([ep, episode_reward, avg_r, avg_l, 0, eps])
+            csv_file.flush()
 
             if ep % 100 == 0:
                 elapsed = time.time() - start_time
                 eps_hr  = ep / (elapsed / 3600) if elapsed > 0 else 0
-                avg_l   = np.mean(all_losses[-100:]) if all_losses else 0
                 print(f"  Ep {ep:5d}/{episodes} | reward={episode_reward:6.1f} "
                       f"avg={avg_r:6.2f} eps={eps:.4f} loss={avg_l:.4f} "
                       f"speed={eps_hr:.0f}ep/hr")
 
             if ep % 500 == 0:
-                ckpt_mgr.save(q_net, optimizer, ep, {'algorithm': algorithm, 'avg_reward': float(avg_r)})
+                meta = {
+                    'environment_version': '1.0',
+                    'state_dimension': obs_size,
+                    'action_dimension': n_actions,
+                    'algorithm': algorithm,
+                    'seed': seed,
+                    'hyperparameters': hyperparams,
+                    'episode': ep,
+                    'avg_reward': float(avg_r)
+                }
+                ckpt_mgr.save(q_net, optimizer, eps, ep, meta)
 
             state = env.reset()
             episode_reward = 0
 
     # Final save
     final_avg = float(np.mean(all_rewards[-100:]))
-    ckpt_mgr.save(q_net, optimizer, ep, {
-        'algorithm': algorithm, 'avg_reward': final_avg, 'final': True,
-    })
+    meta = {
+        'environment_version': '1.0',
+        'state_dimension': obs_size,
+        'action_dimension': n_actions,
+        'algorithm': algorithm,
+        'seed': seed,
+        'hyperparameters': hyperparams,
+        'episode': ep,
+        'avg_reward': final_avg,
+        'final': True,
+    }
+    ckpt_mgr.save(q_net, optimizer, eps, ep, meta)
 
     return {
         'algorithm': algorithm,
@@ -190,8 +221,9 @@ def main():
     parser.add_argument('--epsilon-final', type=float, default=0.01)
     parser.add_argument('--epsilon-decay', type=int, default=1_000_000)
     parser.add_argument('--target-update', type=int, default=10_000)
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for training')
     parser.add_argument('--compare', action='store_true',
-                        help='Train all algorithms and print comparison table')
+                        help='Train random vs dqn algorithms and print comparison table')
     args = parser.parse_args()
 
     hp = {
@@ -209,11 +241,11 @@ def main():
         print("Training all agents for comparison...")
         results = []
         results.append(run_random_baseline(episodes=500))
-        for algo in ['dqn', 'double_dqn', 'dueling_double_dqn']:
-            results.append(run_dqn_training(algo, episodes=min(args.episodes, 3000), hyperparams=hp))
+        for algo in ['dqn']:
+            results.append(run_dqn_training(algo, episodes=min(args.episodes, 3000), hyperparams=hp, seed=args.seed))
         print_comparison_table(results)
     else:
-        result = run_dqn_training(args.algorithm, args.episodes, hp)
+        result = run_dqn_training(args.algorithm, args.episodes, hp, seed=args.seed)
         print(f"\nTraining complete: avg_reward={result['avg_reward']:.2f}")
 
 

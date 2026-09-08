@@ -4,7 +4,7 @@ import StatsPanel from '../components/StatsPanel.jsx';
 import ControlPanel from '../components/ControlPanel.jsx';
 import { CANVAS_W, CANVAS_H } from '../game/breakout.js';
 
-const WS_URL = 'ws://localhost:8000/ws/train';
+const WS_URL = 'ws://localhost:8001/ws/train';
 
 const DEFAULT_HYPERPARAMS = {
   algorithm: 'dueling_double_dqn',
@@ -97,8 +97,23 @@ export default function Studio({ settings, onExit, onVersus }) {
 
   const handleStart = () => {
     if (!connected) connect();
+    const parseNum = (val, parser, def) => {
+      const p = parser(val);
+      return isNaN(p) ? def : p;
+    };
+    const parsedParams = {
+      algorithm: hyperparams.algorithm,
+      episodes: parseNum(hyperparams.episodes, parseInt, DEFAULT_HYPERPARAMS.episodes),
+      learning_rate: parseNum(hyperparams.learning_rate, parseFloat, DEFAULT_HYPERPARAMS.learning_rate),
+      gamma: parseNum(hyperparams.gamma, parseFloat, DEFAULT_HYPERPARAMS.gamma),
+      replay_buffer_size: parseNum(hyperparams.replay_buffer_size, parseInt, DEFAULT_HYPERPARAMS.replay_buffer_size),
+      batch_size: parseNum(hyperparams.batch_size, parseInt, DEFAULT_HYPERPARAMS.batch_size),
+      epsilon_start: parseNum(hyperparams.epsilon_start, parseFloat, DEFAULT_HYPERPARAMS.epsilon_start),
+      epsilon_final: parseNum(hyperparams.epsilon_final, parseFloat, DEFAULT_HYPERPARAMS.epsilon_final),
+      target_update_steps: parseNum(hyperparams.target_update_steps, parseInt, DEFAULT_HYPERPARAMS.target_update_steps),
+    };
     setTimeout(() => {
-      sendCommand('start', { hyperparams, powerUpsEnabled: settings.powerUpsEnabled });
+      sendCommand('start', { hyperparams: parsedParams, powerUpsEnabled: settings.powerUpsEnabled });
       setTraining(true);
       setRewardHistory([]); setLengthHistory([]); setLossHistory([]); setEpsilonHistory([]); setQHistory([]);
     }, 300);

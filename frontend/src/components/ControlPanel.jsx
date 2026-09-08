@@ -45,35 +45,35 @@ export default function ControlPanel({
       <div style={styles.grid}>
         <Field label="Episodes" id="hp-episodes"
           value={hyperparams.episodes}
-          onChange={v => set('episodes', parseInt(v))}
+          onChange={v => set('episodes', v)}
           disabled={training} />
         <Field label="Learning Rate" id="hp-lr"
           value={hyperparams.learning_rate}
-          onChange={v => set('learning_rate', parseFloat(v))}
+          onChange={v => set('learning_rate', v)}
           disabled={training} />
         <Field label="Gamma" id="hp-gamma"
           value={hyperparams.gamma}
-          onChange={v => set('gamma', parseFloat(v))}
+          onChange={v => set('gamma', v)}
           disabled={training} />
         <Field label="Batch Size" id="hp-batch"
           value={hyperparams.batch_size}
-          onChange={v => set('batch_size', parseInt(v))}
+          onChange={v => set('batch_size', v)}
           disabled={training} />
         <Field label="Replay Buffer" id="hp-buffer"
           value={hyperparams.replay_buffer_size}
-          onChange={v => set('replay_buffer_size', parseInt(v))}
+          onChange={v => set('replay_buffer_size', v)}
           disabled={training} />
         <Field label="Epsilon Start" id="hp-eps-start"
           value={hyperparams.epsilon_start}
-          onChange={v => set('epsilon_start', parseFloat(v))}
+          onChange={v => set('epsilon_start', v)}
           disabled={training} />
         <Field label="Epsilon Final" id="hp-eps-final"
           value={hyperparams.epsilon_final}
-          onChange={v => set('epsilon_final', parseFloat(v))}
+          onChange={v => set('epsilon_final', v)}
           disabled={training} />
         <Field label="Target Update" id="hp-target"
           value={hyperparams.target_update_steps}
-          onChange={v => set('target_update_steps', parseInt(v))}
+          onChange={v => set('target_update_steps', v)}
           disabled={training} />
       </div>
 

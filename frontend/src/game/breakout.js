@@ -374,6 +374,17 @@ export class BreakoutGame {
                   new PowerUp(brick.x + brick.w / 2, brick.y + brick.h / 2)
                 );
               }
+              // Speed up ball wrt points scored
+              const speedBoost = 1.005; // 0.5% faster per brick destroyed
+              for (const b of this.balls) {
+                b.vx *= speedBoost;
+                b.vy *= speedBoost;
+                const currentSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                if (currentSpeed > MAX_BALL_SPEED) {
+                  b.vx = (b.vx / currentSpeed) * MAX_BALL_SPEED;
+                  b.vy = (b.vy / currentSpeed) * MAX_BALL_SPEED;
+                }
+              }
             }
           }
           // Reflect ball

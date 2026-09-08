@@ -40,24 +40,18 @@ export function getLevelPaddleMultiplier(level) {
 
 // ── Brick HP distribution by level ──────────────────────────────────────────
 function getHpDistribution(level) {
-  if (level <= 10)  return [[1, 1.00]];
-  if (level <= 20)  return [[1, 0.75], [2, 0.25]];
-  if (level <= 30)  return [[1, 0.50], [2, 0.50]];
-  if (level <= 40)  return [[1, 0.25], [2, 0.60], [3, 0.15]];
-  if (level <= 55)  return [[1, 0.10], [2, 0.45], [3, 0.45]];
-  if (level <= 70)  return [[2, 0.30], [3, 0.60], [9, 0.10]];
-  if (level <= 85)  return [[2, 0.10], [3, 0.65], [9, 0.25]];
-  return             [[3, 0.55], [9, 0.45]];
+  // Use a colorful mix from level 1 to match the python agent environment
+  if (level <= 15)  return [[1, 0.40], [2, 0.35], [3, 0.20], [9, 0.05]];
+  if (level <= 30)  return [[1, 0.30], [2, 0.40], [3, 0.20], [9, 0.10]];
+  if (level <= 50)  return [[1, 0.20], [2, 0.40], [3, 0.25], [9, 0.15]];
+  if (level <= 75)  return [[2, 0.30], [3, 0.50], [9, 0.20]];
+  return             [[3, 0.60], [9, 0.40]];
 }
 
 // ── Row / column count by level ──────────────────────────────────────────────
 function getGridSize(level) {
-  if (level <= 10)  return { rows: 3, cols: 8  };
-  if (level <= 20)  return { rows: 4, cols: 9  };
-  if (level <= 35)  return { rows: 5, cols: 10 };
-  if (level <= 55)  return { rows: 6, cols: 11 };
-  if (level <= 75)  return { rows: 7, cols: 11 };
-  return                    { rows: 8, cols: 12 };
+  // Always 8x12 to match the training environment's classic look
+  return { rows: 8, cols: 12 };
 }
 
 // ── Layout generator ─────────────────────────────────────────────────────────

@@ -1,0 +1,2 @@
+episode,reward,avg_reward_100,avg_loss_100,avg_q_100,epsilon
+1,45.0,45.0,0.0569,-0.0692,0.9988

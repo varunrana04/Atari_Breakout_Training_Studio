@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CANVAS_W, CANVAS_H } from '../game/breakout.js';
 
-const WS_URL = 'ws://localhost:8000/ws/versus';
+const WS_URL = 'ws://localhost:8001/ws/versus';
 
 function renderState(canvas, state) {
   if (!canvas || !state) return;

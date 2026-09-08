@@ -1,32 +1,53 @@
 # System Architecture
 
 ## Overview
-The Atari Breakout Studio consists of a high-performance Python backend serving a physics engine and RL training loop, alongside a modern React interface for real-time visualization.
+The Atari Breakout Training Studio operates as a decoupled, multi-threaded Real-Time Reinforcement Learning engine. The architecture explicitly isolates the synchronous, blocking neural network backpropagation from the highly sensitive, asynchronous 60Hz event loop required for streaming gameplay over WebSockets.
 
-## Components
-1. **Frontend Studio (React + Vite + Chart.js)**
-   - Renders the Breakout game canvas dynamically using incoming WebSocket JSON payloads.
-   - Displays real-time training telemetry on multiple charts (Reward, Ep Length, Loss, Epsilon, Q-Value).
-   - Exposes a control panel to configure hyperparameters and start/pause training.
-   - "Versus Mode" allows humans to play against the trained `.pt` weights via mouse inputs.
+## Architecture Flow
 
-2. **Backend Server (FastAPI)**
-   - Manages asynchronous WebSockets to push `60Hz` state updates to the UI.
-   - Spawns the reinforcement learning background task without blocking the event loop.
+```mermaid
+sequenceDiagram
+    participant C as React Client
+    participant F as FastAPI (Main Thread)
+    participant B as BreakoutEnv (Physics)
+    participant T as ThreadPoolExecutor
+    participant N as Dueling Double DQN
+    participant R as Replay Buffer
+    
+    C->>F: POST /start (Hyperparameters)
+    F->>B: reset(seed)
+    F->>T: Submit async_training_loop()
+    
+    loop 60Hz Game Loop
+        T->>B: get_state()
+        T->>N: forward(state)
+        N-->>T: Action
+        T->>B: step(action)
+        B-->>T: (next_state, reward, done)
+        T->>R: store_transition()
+        
+        opt Train Step (if buffer > batch_size)
+            T->>R: sample_batch()
+            T->>N: backward(loss)
+            N-->>T: Apply Gradients (Huber Clamped)
+        end
+        
+        T->>F: yield(state_dict)
+        F->>C: WebSocket Broadcast (State)
+    end
+```
 
-3. **Environment Engine (`BreakoutEnv`)**
-   - A custom-built 2D physics engine implemented purely in Python using coordinate geometry.
-   - Exposes a standard Gym-like interface (`reset()`, `step(action)`).
-   - Handles paddle bounding boxes, ball velocity deflection, brick grid destruction, and scoring/lives.
+## Module Breakdown
 
-4. **Reinforcement Learning Controller (`trainer.py`)**
-   - Contains a generalized training loop with Replay Buffer sampling.
-   - Manages target network updates.
-   - Automatically saves model checkpoints (`.pt`) and writes out historical telemetry (`.csv`).
+1. **The Game Loop (`BreakoutEnv`)**:
+   - Strictly implements the OpenAI Gym interface (`step`, `reset`).
+   - Uses absolute deterministic floating-point geometry for Axis-Aligned Bounding Box (AABB) intersection detection to guarantee cross-machine determinism.
 
-## Data Flow (Live Training)
-1. The `Trainer` invokes `env.step(action)` to progress the physics engine.
-2. The `Trainer` updates the Neural Network weights based on the loss computed from a sample of the Replay Buffer.
-3. Every step, the `Trainer` packages the updated physics state (paddle x, ball x/y, brick array) into a JSON dictionary and queues it.
-4. The FastAPI `WebSocket` endpoint consumes the queue and transmits it to the browser.
-5. `Studio.jsx` receives the state via `onMessage` and triggers a `requestAnimationFrame` render to draw the state on the canvas.
+2. **The Intelligence Core (`Dueling Double DQN`)**:
+   - Written exclusively in PyTorch, avoiding heavy abstraction wrappers (e.g. stable-baselines) for maximum flexibility.
+   - Utilizes `Double Q-Learning` logic. The Online Network selects the greedy action, but the explicit Target Network is queried for its value, nullifying maximization bias.
+
+3. **The Broadcast Layer (`FastAPI`)**:
+   - The `/ws` endpoint holds an open duplex connection to the React frontend.
+   - Uses `asyncio` to read the queue populated by the `ThreadPoolExecutor`, enabling zero-blocking 60FPS pushes to the browser.
+   - Also exposes synchronous REST endpoints for `/pause`, `/resume`, and `/status` to inject control signals dynamically during execution.

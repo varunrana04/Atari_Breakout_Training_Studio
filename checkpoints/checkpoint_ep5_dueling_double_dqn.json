@@ -1,0 +1,13 @@
+{
+  "episode": 5,
+  "epsilon": 0.99641917,
+  "algorithm": "dueling_double_dqn",
+  "meta": {
+    "algorithm": "dueling_double_dqn",
+    "env_version": "1.0.0",
+    "model_architecture": {
+      "class": "DuelingQNetwork",
+      "total_params": 158468
+    }
+  }
+}

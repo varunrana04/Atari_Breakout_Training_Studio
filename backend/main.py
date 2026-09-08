@@ -102,6 +102,9 @@ async def ws_train(ws: WebSocket):
         print("[WS/train] Client disconnected")
         if _trainer:
             _trainer.stop()
+        if _train_task and not _train_task.done():
+            _train_task.cancel()
+
 
 
 # ── Versus WebSocket ───────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
-  "episode": 2,
-  "epsilon": 0.99759727,
+  "episode": 1,
+  "epsilon": 0.99865855,
   "algorithm": "dueling_double_dqn",
   "meta": {
     "algorithm": "dueling_double_dqn",

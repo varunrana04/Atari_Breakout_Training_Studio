@@ -1,11 +1,19 @@
 export default function StatsPanel({ stats }) {
+  const formatVal = (val, decimals) => {
+    if (typeof val !== 'number' || isNaN(val)) return '0';
+    if (Math.abs(val) > 9999 || (Math.abs(val) < 0.001 && val !== 0)) {
+      return val.toExponential(2);
+    }
+    return val.toFixed(decimals);
+  };
+
   const items = [
     { label: 'Episode',     value: stats.episode.toLocaleString(), color: 'var(--text-primary)' },
-    { label: 'Reward',      value: stats.reward.toFixed(1),        color: 'var(--accent-green)' },
-    { label: 'Avg Reward',  value: stats.avgReward.toFixed(2),     color: 'var(--accent-green)' },
-    { label: 'Epsilon',     value: stats.epsilon.toFixed(4),       color: 'var(--accent-blue)' },
-    { label: 'Loss',        value: stats.loss.toFixed(4),          color: 'var(--accent-orange)' },
-    { label: 'Mean Q',      value: stats.qValue.toFixed(3),        color: '#a855f7' },
+    { label: 'Reward',      value: formatVal(stats.reward, 1),     color: 'var(--accent-green)' },
+    { label: 'Avg Reward',  value: formatVal(stats.avgReward, 2),  color: 'var(--accent-green)' },
+    { label: 'Epsilon',     value: formatVal(stats.epsilon, 4),    color: 'var(--accent-blue)' },
+    { label: 'Loss',        value: formatVal(stats.loss, 4),       color: 'var(--accent-orange)' },
+    { label: 'Mean Q',      value: formatVal(stats.qValue, 3),     color: '#a855f7' },
     { label: 'Speed',       value: `${Math.round(stats.speed)} ep/hr`, color: 'var(--text-secondary)' },
   ];
 

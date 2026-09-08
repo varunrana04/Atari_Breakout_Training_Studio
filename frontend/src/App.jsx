@@ -16,7 +16,7 @@ export default function App() {
 
   const openVersusModal = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/checkpoints');
+      const res = await fetch('http://localhost:8001/api/checkpoints');
       const data = await res.json();
       setCheckpoints(data.checkpoints ?? []);
     } catch (_) {

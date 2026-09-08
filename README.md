@@ -1,43 +1,69 @@
-# Atari Breakout Training Studio (Project 2)
+# Atari Breakout Training Studio
 
-This repository contains a full-stack Atari Breakout RL Training Studio. We built a native Python Breakout environment from scratch, trained a custom Dueling Double DQN agent on it, and visualized the live training process via a React frontend.
+A high-performance, fully asynchronous Reinforcement Learning environment and training studio for Atari Breakout. Built from scratch with a custom Python physics engine, a Dueling Double DQN agent, and a React real-time visualization dashboard.
 
-## 🚀 Getting Started
+## 🧠 RL Architecture & Agent Design
 
-The entire studio, including the frontend UI and the Python training backend, runs from a single command:
+The agent is trained using a **Dueling Double Deep Q-Network (D3QN)**.
+- **State Representation**: The game state is encoded as a 4-frame stacked tensor `(4, H, W)` allowing the CNN to infer ball velocity and trajectory.
+- **Dueling Streams**: The CNN feature extractor splits into two separate fully-connected streams:
+  1. **Value Stream**: Estimates the intrinsic value of the state $V(s)$.
+  2. **Advantage Stream**: Estimates the relative advantage of each action $A(s, a)$.
+  This allows the agent to learn that states where the ball is far away are "safe" regardless of the action taken.
+- **Loss Function**: We utilize **Huber Loss** (`F.smooth_l1_loss`) to calculate the Temporal Difference (TD) error. This exponentially stabilizes gradient descent by preventing massive reward spikes (like breaking multiple bricks simultaneously) from exploding the neural weights.
 
+## ⚙️ Physics Engine Details
+
+Rather than wrapping `gym.Env` blindly, the backend implements a deterministic, 60Hz 2D physics engine:
+- **AABB Collision Detection**: Axis-Aligned Bounding Boxes track the ball, paddle, and bricks. 
+- **Deflection Geometry**: Paddle deflections are linearly interpolated based on where the ball strikes the paddle relative to its center, allowing the agent to "aim" the ball.
+- **Terminal States**: Loss of life correctly emits `done=True` to the Replay Buffer to strictly enforce the Markov Property and teach the agent the penalty of death.
+
+## 🚀 Setup & Installation
+
+### Requirements
+- Python 3.10+
+- Node.js 18+
+- PyTorch (CUDA recommended but CPU-compatible)
+
+### Backend Initialization
 ```bash
-./start.ps1
+cd backend
+python -m venv venv
+
+# Windows
+.\venv\Scripts\activate
+# Linux/Mac
+source venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-This will automatically:
-1. Start the Python FastAPI backend (`localhost:8000`)
-2. Serve the React frontend (`localhost:5173`)
-3. Open your browser to the Studio interface!
+### Frontend Initialization
+```bash
+cd frontend
+npm install
+```
 
-## 🧠 Training the Agent
-You can kick off a training run directly from the browser! 
-1. Navigate to the **Training Studio** tab.
-2. Select an algorithm (DQN, Double DQN, or Dueling Double DQN).
-3. Hit **Start Training**.
-4. Watch the agent learn in real-time on the canvas, while the 5 charts (Avg Reward, Ep Length, Loss, Epsilon, Mean Q-Value) track its progress!
+## 🎮 Running the Studio
 
-*(Alternatively, you can run headless training via: `python backend/train.py --algorithm dueling_double_dqn --episodes 5000`)*
+Start the backend API (runs on `http://localhost:8000`):
+```bash
+cd backend
+uvicorn main:app --reload
+```
 
-## ⚔️ Human vs AI (Versus Mode)
-Want to play against the trained weights?
-1. Navigate to the **Versus Mode** tab.
-2. Load a checkpoint from the dropdown (e.g. `checkpoint_ep1500_dqn.pt`).
-3. Use your **Mouse** to control the bottom paddle and play against the Agent!
+Start the React Frontend (runs on `http://localhost:5173`):
+```bash
+cd frontend
+npm run dev
+```
 
-## 📊 Agent Analysis
+From the frontend Studio, you can:
+- Observe the live epsilon decay, reward curve, and loss charting.
+- Watch the agent learn to play in real-time.
+- Pause the training loop instantly.
+- Load `checkpoint_ep742_dueling_double_dqn.pt` and play against the trained agent in **Versus Mode**.
 
-### What it picked up:
-- **Ball Tracking**: The agent quickly learned (around episode 500) to keep the paddle directly underneath the ball's x-coordinate, surviving indefinitely.
-- **Tunneling**: By episode 1200, the network learned the classic "tunneling" strategy: aiming the ball repeatedly at a single column of bricks to break through to the ceiling, scoring massive passive points as the ball bounces infinitely along the top.
-
-### What it never figured out:
-- **Sharp Angles**: The agent struggles to hit the ball with the extreme edges of the paddle to create sharp horizontal trajectories. It prefers safe, vertical center-bounces.
-
-### Where it falls apart:
-- **State Aliasing**: Because the CNN uses the last 4 frames to infer velocity, if the ball's velocity perfectly syncs with the frame skipping frequency, the agent occasionally drops an easily catchable ball.
+## 📂 Samples
+Check the `samples/` directory for the `training_curve.png` plot showing the agent's convergence toward the optimal "tunneling" strategy, and `sample_state.json` detailing the WebSocket payload.

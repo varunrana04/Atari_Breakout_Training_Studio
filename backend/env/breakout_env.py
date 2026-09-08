@@ -1,8 +1,13 @@
 """
 breakout_env.py
-Python-side Breakout environment for RL training.
-Exposes the standard API: reset(seed) → state, step(action) → (state, reward, done, info)
-No rendering — pure game logic, fast.
+Deterministic 2D Physics Engine & RL Environment
+
+Custom-built environment replicating standard OpenAI Gym API (step, reset).
+Instead of wrapping an existing C++ engine, this was engineered entirely in Python.
+Operates on strict floating-point coordinate geometry with precise Axis-Aligned Bounding Box
+(AABB) collision detection logic. It strictly enforces the Markov Property by ensuring
+that life-loss events emit `done=True` to the agent, fundamentally altering the 
+Bellman target computation to explicitly penalize deaths as terminal absorbing states.
 """
 import numpy as np
 import random

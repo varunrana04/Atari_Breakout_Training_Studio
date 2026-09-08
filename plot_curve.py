@@ -4,11 +4,10 @@ import os
 import glob
 
 # Find the latest CSV log
-csv_files = glob.glob('backend/checkpoints/training_history_*.csv')
-if not csv_files:
+csv_file = 'checkpoints/history_dueling_double_dqn.csv'
+if not os.path.exists(csv_file):
     print("No CSV found.")
     exit(1)
-csv_file = csv_files[0]
 
 df = pd.read_csv(csv_file)
 

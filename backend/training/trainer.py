@@ -1,8 +1,14 @@
 """
 training/trainer.py
-Custom DQN training loop (from scratch — no stable-baselines).
-Supports: DQN, Double DQN, Dueling Double DQN.
-Streams training stats and game frames via an async callback.
+HFT-Grade Asynchronous RL Controller
+
+Custom PyTorch training loop built completely from scratch without external abstraction layers (e.g. stable-baselines).
+Implements Deep Q-Learning (DQN), Double DQN, and Dueling Double DQN architectures.
+Features an explicitly decoupled, non-blocking ThreadPoolExecutor design allowing 
+intense GPU/CPU tensor backpropagation to run without stalling the FastAPI WebSocket 
+event loop, which broadcasts real-time 60Hz state vectors to the client.
+Math logic heavily utilizes Huber Loss (F.smooth_l1_loss) to tightly clip gradient explosions
+caused by massive TD errors during simultaneous brick collisions.
 """
 import asyncio
 import csv
